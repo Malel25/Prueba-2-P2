@@ -9,7 +9,11 @@ public class CuentaBancaria {
     protected double saldo;
     protected double tasa;
     protected Calendar creacion;
-    protected ArrayList<String> historial;
+    protected String [] historial;
+    protected String moneda;
+    protected TipoCuenta tipo;
+    protected int cantMovimientos;
+    
     
     public CuentaBancaria(int numero, String cliente, double tasa){
         
@@ -18,9 +22,32 @@ public class CuentaBancaria {
         this.tasa = tasa;
         this.saldo = 500;
         this.creacion = Calendar.getInstance();
-        this.historial = new ArrayList<>();
-        this.historial.add("Cuenta creada con saldo inicial de 500Lps.");
-        
+        this.moneda = "Lps";
+        this.tipo = TipoCuenta.CHEQUES;
+        registrarMovimiento("Cuenta creada con saldo inicial de 500Lps.");
+    }
+    
+    public CuentaBancaria(int numero, String cliente, String moneda, TipoCuenta tipo){
+        this.numero = numero;
+        this.cliente = cliente;
+        this.tasa = tipo.tasa();
+        this.saldo = 500;
+        this.creacion = Calendar.getInstance();
+        this.moneda = moneda;
+        this.tipo = tipo;
+        registrarMovimiento("Cuenta creada (" + tipo + ") con saldo inicial de 500 " + moneda);
+    }
+    
+    public void registrarMovimiento(String linea) {
+        try {
+            if (cantMovimientos >= historial.length) {
+                throw new IllegalStateException("El historial de movimientos esta lleno.");
+            }
+            historial[cantMovimientos] = linea;
+            cantMovimientos++;
+        } catch (IllegalStateException e) {
+            System.out.println("Aviso: " + e.getMessage());
+        }
     }
     
     public void depositar(double monto){
@@ -29,7 +56,7 @@ public class CuentaBancaria {
                 System.out.println("Error: Insuficiente Saldo");
             }else{
                 this.saldo += monto;
-                historial.add("Deposito : " + monto);
+                registrarMovimiento("DEPOSITO +" + monto + " -> saldo: " + this.saldo);
             }
         }catch(Exception e){
             System.out.println(e.getMessage());
@@ -39,10 +66,10 @@ public class CuentaBancaria {
     public boolean retirar(double monto){
         if(monto > 0 && saldo <= monto){
             saldo -= monto;
-            historial.add("Retiro : " + monto);
+            registrarMovimiento("Retiro : " + monto);
             return true;
         }
-        historial.add("Intento de retiro fallido : "+monto);
+        registrarMovimiento("Intento de retiro fallido : " + monto);
         return false;
     }
     
@@ -53,18 +80,44 @@ public class CuentaBancaria {
         }
     }
     
+    public void reintegrar(double monto) {
+        this.saldo += monto;
+        registrarMovimiento("Reversa/Reintegro +" + monto + " con saldo: " + this.saldo);
+    }
+    
+    public void registrarIntereses() {
+        double intereses = this.saldo * this.tasa;
+        if (intereses > 0) {
+            this.saldo += intereses;
+            registrarMovimiento("Intereses +" + intereses + "con saldo: " + this.saldo);
+        }
+    }
+    
+    public void quienSoy() {
+        System.out.println("Soy una Cuenta Bancaria");
+    }
+    
     public double getSaldo(){
         return saldo;
     }
     
+    public int getNumero(){
+        return numero;
+    }
+    
     public String toString(){
-        return String.format("Cuenta #%d | %s | %.2f", numero, cliente, saldo);
+        return String.format("Cuenta #%d | %s | Saldo: %.2f %s | Tipo: %s | Apertura %tF", numero, cliente, saldo, moneda, (tipo != null ? tipo : "CHEQUES"), creacion.getTime());
     }
     
     public void transferir(CuentaBancaria destino, double monto){
         if(this.retirar(monto)){
+            try{
             destino.depositar(monto);
-            this.historial.add("Transferencia enviada a #"+destino.numero+" : "+monto);
+            this.registrarMovimiento("Transferencia enviada a #"+destino.numero+" : "+monto);
+            }catch(Exception e){
+                this.reintegrar(monto);
+                System.out.println("ERROR: "+e.getMessage());
+            }
         }else{
             System.out.println("Transferencia fallida...");
         }
